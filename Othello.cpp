@@ -5,15 +5,6 @@
 
 using namespace std;
 
-void SavecanGo(int);
-bool canGo(int);
-int isWhat(int, int);
-bool put(int, int, int);
-void InitBoard();
-void PrintBoard();
-bool BoardisFull();
-int CheckWin();
-
 struct Position {
     Position(int, int);
     int x;
@@ -25,86 +16,24 @@ Position::Position(int cx, int cy) {
     y = cy;
 }
 
+void InitBoard();
+void PrintBoard();
+void UpdateBoard(int, int, int);
+bool BoardisFull();
+int BoardisOneColor();
+int isWhat(int, int);
+void SavecanGo(int);
+bool canGo(int);
+bool put(int, int, int, bool);
+Position Go();
+int CheckWin();
+
 int ChessBoard[8][8];
 vector<Position> possiblePosition;
 
 // U,UR,R,DR,D,DL,L,UL
 int DIRECTION_X[8] = {0,1,1,1,0,-1,-1,-1};
 int DIRECTION_Y[8] = {-1,-1,0,1,1,1,0,-1};
-
-/*
- * Check where can go and save result at vector possiblePosition
- */
-void SavecanGo(int color)
-{
-    possiblePosition.clear();
-    int x,y;
-    for(x = 0; x < 8; ++x) {
-		for(y = 0; y < 8; ++y) {
-			if(put(x, y, color)) {
-			    possiblePosition.push_back(Position(x, y));
-            }
-		}
-    }
-}
-
-/*
- * Check whether can go 
- */
-bool canGo(int color)
-{
-    SavecanGo(color);
-    if(possiblePosition.empty()) return false;
-	return true;
-}
-
-/*
- * Return chessboard color
- */
-int isWhat(int x, int y)
-{
-    return ChessBoard[x][y];
-}
-
-/*
- * Try to go on chessboard and return true for can go
- */
-bool put(int x, int y, int color)
-{
-    if(isWhat(x, y) != 0) return false;
-    
-    static vector<Position> posToReverse;
-    for(int i = 0; i < 8; i++) {
-        int xt = x;
-        int yt = y;
-        int opinionColor = (color == 1) ? 2 : 1; 
-        posToReverse.clear();
-
-        while(1) {
-            xt += DIRECTION_X[i];
-            yt += DIRECTION_Y[i];
-            if(xt < 0 || xt > 8 || yt < 0 || yt > 8) {
-                posToReverse.clear();
-                break;
-            }
-            int chess = isWhat(xt, yt);
-            if(chess == opinionColor) {
-                posToReverse.push_back(Position(xt, yt));
-            }
-            else if(chess == 0) {
-                posToReverse.clear();
-                break;
-            }
-            else {
-                break;
-            }
-        }
-        if (posToReverse.size()) {
-			return true;
-		}
-    }
-    
-}
 
 /*
  * Initial the ChessBoard
@@ -136,6 +65,15 @@ void PrintBoard()
 }
 
 /*
+ * Update the ChessBoard
+ */
+void UpdateBoard(int px, int py, int color)
+{
+    ChessBoard[px][py] = color;
+    put(px, py, color, false);
+}
+
+/*
  * Check chessboard is full
  */
 bool BoardisFull()
@@ -150,6 +88,112 @@ bool BoardisFull()
         }
     }
     return true;
+}
+
+/*
+ * Check chessboard is all one color
+ */
+int BoardisOneColor()
+{
+    bool allOne = 0;
+    for(int i = 0; i < 8; i++) {
+        for(int j = 0; j < 8; j++) {
+            if(ChessBoard[i][j] == 1) {
+                if(allOne == 2) return 0;
+                allOne = 1;
+            }
+            if(allOne == 1) return 0;
+            allOne = 2;
+        }
+    }
+    if(allOne == 1) return 1;
+    else return 2;
+}
+
+/*
+ * Return chessboard color
+ */
+int isWhat(int x, int y)
+{
+    return ChessBoard[x][y];
+}
+
+/*
+ * Check where can go and save result at vector possiblePosition
+ */
+void SavecanGo(int color)
+{
+    possiblePosition.clear();
+    int x,y;
+    for(x = 0; x < 8; ++x) {
+		for(y = 0; y < 8; ++y) {
+			if(put(x, y, color, true)) {
+			    possiblePosition.push_back(Position(x, y));
+            }
+		}
+    }
+}
+
+/*
+ * Check whether can go 
+ */
+bool canGo(int color)
+{
+    SavecanGo(color);
+    if(possiblePosition.empty()) return false;
+	return true;
+}
+
+/*
+ * Try to go on chessboard and return true for can go
+ */
+bool put(int x, int y, int color, bool onlyCheck)
+{
+    if(isWhat(x, y) != 0) return false;
+    
+    static vector<Position> posToReverse;
+    for(int i = 0; i < 8; i++) {
+        int xt = x;
+        int yt = y;
+        int opinionColor = (color == 1) ? 2 : 1; 
+        posToReverse.clear();
+
+        while(1) {
+            xt += DIRECTION_X[i];
+            yt += DIRECTION_Y[i];
+            if(xt < 0 || xt > 8 || yt < 0 || yt > 8) {
+                posToReverse.clear();
+                break;
+            }
+            int chess = isWhat(xt, yt);
+            if(chess == opinionColor) {
+                posToReverse.push_back(Position(xt, yt));
+            }
+            else if(chess == 0) {
+                posToReverse.clear();
+                break;
+            }
+            else {
+                break;
+            }
+        }
+        if (posToReverse.size()) {
+			if(onlyCheck) return true;
+            for (Position pos : posToReverse) {
+                if(color == 1) ChessBoard[pos.x][pos.y] = 2;
+                else ChessBoard[pos.x][pos.y] = 1;
+            }
+		}
+    }
+    
+}
+
+/*
+ * AI choice best way to go
+ */
+Position Go()
+{
+
 }
 
 /*
@@ -170,6 +214,10 @@ int CheckWin()
         if(n_black > n_white) return 1;
         else return 2;
     }
+
+    // no black or white in chessboard
+    int winColor = BoardisOneColor();
+    if(winColor != 0) return winColor;
 
     // black can not move
     if(!canGo(1)) return 2;
@@ -211,9 +259,9 @@ int main()
             // check where can go
             SavecanGo(my_color);
             // print ai move
-
+            Position ai_go = Go();
             // update chessboard
-
+            UpdateBoard(ai_go.x, ai_go.y, my_color);
             // print chessboard
             PrintBoard();
         }
@@ -236,7 +284,7 @@ int main()
             else break;
         }
         // update chessboard
-
+        UpdateBoard(ox, oy, opinion_color);
         // print chessboard
         PrintBoard(); 
 
@@ -244,9 +292,9 @@ int main()
         // check where can go
         SavecanGo(my_color);
         // print ai move
-
+        Position ai_go = Go();
         // update chessboard
-
+        UpdateBoard(ai_go.x, ai_go.y, my_color);
         // print chessboard
         PrintBoard();
     }

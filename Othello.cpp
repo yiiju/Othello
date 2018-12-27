@@ -1,13 +1,29 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
+#include <vector>
 
 using namespace std;
 
+void SavecanGo(int);
+bool canGo(int);
+int isWhat(int, int);
+bool put(int, int, int);
+void InitBoard();
+void PrintBoard();
+bool BoardisFull();
+int CheckWin();
+
 struct Position {
+    Position(int, int);
     int x;
     int y;
 };
+
+Position::Position(int cx, int cy) {
+    x = cx;
+    y = cy;
+}
 
 int ChessBoard[8][8];
 vector<Position> possiblePosition;
@@ -190,7 +206,7 @@ int main()
         }
 
         if(my_color == 1 && first == false) {
-            first = true
+            first = true;
             // first ai enter
             // check where can go
             SavecanGo(my_color);
@@ -211,7 +227,7 @@ int main()
             SavecanGo(opinion_color);
             bool notGo;
             for(int i = 0; i < possiblePosition.size(); i++) {
-                if(ox == possiblePosition(i).x && oy == possiblePosition(i).y) {
+                if(ox == possiblePosition[i].x && oy == possiblePosition[i].y) {
                     notGo = false;
                     break;
                 }

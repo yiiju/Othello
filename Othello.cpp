@@ -21,7 +21,7 @@ Position::Position(int cx, int cy) {
 }
 
 void InitBoard();
-void PrintBoard();
+void PrintBoard(int);
 void UpdateBoard(int, int, int);
 bool BoardisFull();
 int BoardisOneColor();
@@ -57,8 +57,11 @@ void InitBoard()
 /*
  * Print the ChessBoard
  */
-void PrintBoard()
+void PrintBoard(int color)
 {
+    SavecanGo(color);
+    int another_color = (color == BLACK) ? WHITE : BLACK;
+    if(possiblePosition.size() == 0) SavecanGo(another_color);
     // Windows print colored text
     HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
     CONSOLE_SCREEN_BUFFER_INFO consoleInfo;
@@ -74,13 +77,23 @@ void PrintBoard()
     /* Restore original attributes */
     SetConsoleTextAttribute(hConsole, saved_attributes);
 
-    int i,j;
+    int i,j,in = 0;
     for(i = 0; i < 8; i++) {
         SetConsoleTextAttribute(hConsole, FOREGROUND_BLUE);
         printf("%d ",i);
         SetConsoleTextAttribute(hConsole, saved_attributes);
         for(j = 0; j < 8; j++) {
-            printf("%d ",ChessBoard[i][j]);
+            for (Position pos : possiblePosition) {
+                if(i == pos.x && j == pos.y) {
+                    SetConsoleTextAttribute(hConsole, FOREGROUND_RED);
+                    printf("%d ",ChessBoard[i][j]);
+                    SetConsoleTextAttribute(hConsole, saved_attributes);
+                    in = 1;
+                    break;
+                }
+            }
+            if(in == 0) printf("%d ",ChessBoard[i][j]);
+            in = 0;
         }
         printf("\n");
     }
@@ -226,7 +239,6 @@ int CheckWin(int go_color)
     int n_black = 0;
     // chessboard is full or no one can go
     if(BoardisFull() || go_color == 0) {
-        printf("Chessboard is full\n");
         for(int i = 0; i < 8; i++) {
             for(int j = 0; j < 8; j++) {
                 if(ChessBoard[i][j] == 1) ++n_black;
@@ -243,17 +255,6 @@ int CheckWin(int go_color)
         printf("Chessboard is remain %d color\n",winColor);
         return winColor;
     }
-
-    if(go_color == WHITE) {
-        // black can not move
-        if(!canGo(BLACK)) return WHITE;
-    }
-
-    if(go_color == BLACK) {
-        // white can not move
-        if(!canGo(WHITE)) return BLACK;
-    }
-
     return 0;
 }
 int main()
@@ -269,7 +270,7 @@ int main()
     printf("Color is %d.\n",my_color);
     opinion_color = (my_color == BLACK) ? WHITE : BLACK;
     InitBoard();
-    PrintBoard();
+    PrintBoard(BLACK);
 
     // first ai enter
     bool first = false;
@@ -286,7 +287,7 @@ int main()
         UpdateBoard(tx, ty, my_color);
         //UpdateBoard(ai_go.x, ai_go.y, my_color);
         // print chessboard
-        PrintBoard();
+        PrintBoard(opinion_color);
     }               
 
     bool cannotGo_opinion = false;
@@ -299,7 +300,7 @@ int main()
             SavecanGo(opinion_color);
             // can not go -> pass
             if(possiblePosition.size() == 0) {
-                printf("%d pass!\n",opinion_color);
+                printf("You can not go! Pass!\n");
                 cannotGo_opinion = true;
                 break;
             }
@@ -325,7 +326,7 @@ int main()
             // update chessboard
             UpdateBoard(ox, oy, opinion_color);
             // print chessboard
-            PrintBoard(); 
+            PrintBoard(my_color); 
             // check win
             int win = CheckWin(opinion_color);
             if(win != 0) {
@@ -341,7 +342,7 @@ int main()
         SavecanGo(my_color);
         // can not go -> pass
         if(possiblePosition.size() == 0) {
-            printf("%d pass!\n",my_color);
+            printf("Pass!\n");
             cannotGo_me = true;
         }
         if(!cannotGo_me) {
@@ -353,7 +354,7 @@ int main()
             // update chessboard
             UpdateBoard(tx, ty, my_color);
             // print chessboard
-            PrintBoard();
+            PrintBoard(opinion_color);
             // check win
             int win = CheckWin(my_color);
             if(win != 0) {

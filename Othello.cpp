@@ -2,8 +2,12 @@
 #include <stdlib.h>
 #include <iostream>
 #include <vector>
+#include <windows.h>
 
 using namespace std;
+
+#define BLACK 1
+#define WHITE 2
 
 struct Position {
     Position(int, int);
@@ -46,8 +50,8 @@ void InitBoard()
             ChessBoard[i][j] = 0;
         }
     }
-    ChessBoard[4][3] = 1; ChessBoard[3][4] = 1;
-    ChessBoard[3][3] = 2; ChessBoard[4][4] = 2;
+    ChessBoard[4][3] = BLACK; ChessBoard[3][4] = BLACK;
+    ChessBoard[3][3] = WHITE; ChessBoard[4][4] = WHITE;
 }
 
 /*
@@ -55,8 +59,26 @@ void InitBoard()
  */
 void PrintBoard()
 {
+    // Windows print colored text
+    HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+    CONSOLE_SCREEN_BUFFER_INFO consoleInfo;
+    WORD saved_attributes;
+
+    /* Save current attributes */
+    GetConsoleScreenBufferInfo(hConsole, &consoleInfo);
+    saved_attributes = consoleInfo.wAttributes;
+
+    SetConsoleTextAttribute(hConsole, FOREGROUND_BLUE);
+    printf("  0 1 2 3 4 5 6 7\n");
+
+    /* Restore original attributes */
+    SetConsoleTextAttribute(hConsole, saved_attributes);
+
     int i,j;
     for(i = 0; i < 8; i++) {
+        SetConsoleTextAttribute(hConsole, FOREGROUND_BLUE);
+        printf("%d ",i);
+        SetConsoleTextAttribute(hConsole, saved_attributes);
         for(j = 0; j < 8; j++) {
             printf("%d ",ChessBoard[i][j]);
         }
@@ -98,16 +120,15 @@ int BoardisOneColor()
     bool allOne = 0;
     for(int i = 0; i < 8; i++) {
         for(int j = 0; j < 8; j++) {
-            if(ChessBoard[i][j] == 1) {
-                if(allOne == 2) return 0;
-                allOne = 1;
+            if(ChessBoard[i][j] == BLACK) {
+                if(allOne == WHITE) return 0;
+                allOne = BLACK;
             }
-            if(allOne == 1) return 0;
-            allOne = 2;
+            if(allOne == BLACK) return 0;
+            allOne = WHITE;
         }
     }
-    if(allOne == 1) return 1;
-    else return 2;
+    return allOne;
 }
 
 /*
@@ -149,19 +170,19 @@ bool canGo(int color)
  */
 bool put(int x, int y, int color, bool onlyCheck)
 {
-    if(isWhat(x, y) != 0) return false;
+    if(isWhat(x, y) != 0 && onlyCheck) return false;
     
     static vector<Position> posToReverse;
     for(int i = 0; i < 8; i++) {
         int xt = x;
         int yt = y;
-        int opinionColor = (color == 1) ? 2 : 1; 
+        int opinionColor = (color == BLACK) ? WHITE : BLACK; 
         posToReverse.clear();
 
         while(1) {
             xt += DIRECTION_X[i];
             yt += DIRECTION_Y[i];
-            if(xt < 0 || xt > 8 || yt < 0 || yt > 8) {
+            if(xt < 0 || xt > 7 || yt < 0 || yt > 7) {
                 posToReverse.clear();
                 break;
             }
@@ -180,8 +201,8 @@ bool put(int x, int y, int color, bool onlyCheck)
         if (posToReverse.size()) {
 			if(onlyCheck) return true;
             for (Position pos : posToReverse) {
-                if(color == 1) ChessBoard[pos.x][pos.y] = 2;
-                else ChessBoard[pos.x][pos.y] = 1;
+                if(color == 1) ChessBoard[pos.x][pos.y] = 1;
+                else ChessBoard[pos.x][pos.y] = 2;
             }
 		}
     }
@@ -199,12 +220,13 @@ Position Go()
 /*
  * Check who win
  */
-int CheckWin()
+int CheckWin(int go_color)
 {
     int n_white = 0;
     int n_black = 0;
-    // chessboard is full
-    if(BoardisFull()) {
+    // chessboard is full or no one can go
+    if(BoardisFull() || go_color == 0) {
+        printf("Chessboard is full\n");
         for(int i = 0; i < 8; i++) {
             for(int j = 0; j < 8; j++) {
                 if(ChessBoard[i][j] == 1) ++n_black;
@@ -217,17 +239,23 @@ int CheckWin()
 
     // no black or white in chessboard
     int winColor = BoardisOneColor();
-    if(winColor != 0) return winColor;
+    if(winColor != 0) {
+        printf("Chessboard is remain %d color\n",winColor);
+        return winColor;
+    }
 
-    // black can not move
-    if(!canGo(1)) return 2;
+    if(go_color == WHITE) {
+        // black can not move
+        if(!canGo(BLACK)) return WHITE;
+    }
 
-    // white can not move
-    if(!canGo(2)) return 1;
+    if(go_color == BLACK) {
+        // white can not move
+        if(!canGo(WHITE)) return BLACK;
+    }
 
     return 0;
 }
-
 int main()
 {
     int my_color = 0;
@@ -239,41 +267,51 @@ int main()
 		    getchar();
     }
     printf("Color is %d.\n",my_color);
-    opinion_color = (my_color == 1) ? 2 : 1;
+    opinion_color = (my_color == BLACK) ? WHITE : BLACK;
     InitBoard();
     PrintBoard();
+
+    // first ai enter
     bool first = false;
+    if(my_color == BLACK && first == false) {
+        first = true;
+        // check where can go
+        SavecanGo(my_color);
+        // print ai move
+        printf("Please input your move: ");
+        int tx,ty;
+        scanf("%d %d", &tx, &ty);
+        //Position ai_go = Go();
+        // update chessboard
+        UpdateBoard(tx, ty, my_color);
+        //UpdateBoard(ai_go.x, ai_go.y, my_color);
+        // print chessboard
+        PrintBoard();
+    }               
 
+    bool cannotGo_opinion = false;
+    bool cannotGo_me = false;
     while(1) {
-        // check win
-        int win = CheckWin();
-        if(win != 0) {
-            if(win == 1) printf("Black win~\n");
-            else printf("White win~\n");
-            break;
-        }
-
-        if(my_color == 1 && first == false) {
-            first = true;
-            // first ai enter
-            // check where can go
-            SavecanGo(my_color);
-            // print ai move
-            Position ai_go = Go();
-            // update chessboard
-            UpdateBoard(ai_go.x, ai_go.y, my_color);
-            // print chessboard
-            PrintBoard();
-        }
-        
         // human enter
         int ox, oy;
+        cannotGo_opinion = false;
         while(1) {
-            printf("Please input your move (ex. 0 0): ");
+            SavecanGo(opinion_color);
+            // can not go -> pass
+            if(possiblePosition.size() == 0) {
+                printf("%d pass!\n",opinion_color);
+                cannotGo_opinion = true;
+                break;
+            }
+            // print can go where
+            for (Position pos : possiblePosition) {
+                printf("%d %d, ",pos.x,pos.y);
+            }
+            printf("choose one to move.\n");
+            printf("Please input your move: ");
             scanf("%d %d", &ox, &oy);
             // check if this move is legal
-            SavecanGo(opinion_color);
-            bool notGo;
+            bool notGo = true;
             for(int i = 0; i < possiblePosition.size(); i++) {
                 if(ox == possiblePosition[i].x && oy == possiblePosition[i].y) {
                     notGo = false;
@@ -283,20 +321,57 @@ int main()
             if(notGo) printf("You can not go that move!!\n");
             else break;
         }
-        // update chessboard
-        UpdateBoard(ox, oy, opinion_color);
-        // print chessboard
-        PrintBoard(); 
+        if(!cannotGo_opinion) {
+            // update chessboard
+            UpdateBoard(ox, oy, opinion_color);
+            // print chessboard
+            PrintBoard(); 
+            // check win
+            int win = CheckWin(opinion_color);
+            if(win != 0) {
+                if(win == 1) printf("Black win~\n");
+                else printf("White win~\n");
+                break;
+            }
+        }
 
         // ai enter
+        cannotGo_me = false;
         // check where can go
         SavecanGo(my_color);
-        // print ai move
-        Position ai_go = Go();
-        // update chessboard
-        UpdateBoard(ai_go.x, ai_go.y, my_color);
-        // print chessboard
-        PrintBoard();
+        // can not go -> pass
+        if(possiblePosition.size() == 0) {
+            printf("%d pass!\n",my_color);
+            cannotGo_me = true;
+        }
+        if(!cannotGo_me) {
+            // print ai move
+            printf("Please input your move: ");
+            int tx,ty;
+            scanf("%d %d", &tx, &ty);
+            //Position ai_go = Go();
+            // update chessboard
+            UpdateBoard(tx, ty, my_color);
+            // print chessboard
+            PrintBoard();
+            // check win
+            int win = CheckWin(my_color);
+            if(win != 0) {
+                if(win == 1) printf("Black win~\n");
+                else printf("White win~\n");
+                break;
+            }
+        }
+        // both can not move 
+        if(cannotGo_opinion && cannotGo_me) {
+            // check win
+            int win = CheckWin(0);
+            if(win != 0) {
+                if(win == 1) printf("Black win~\n");
+                else printf("White win~\n");
+                break;
+            }
+        }
     }
     return 0;
 }

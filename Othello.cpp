@@ -35,7 +35,7 @@ int CheckWin();
 int ChessBoard[8][8];
 vector<Position> possiblePosition;
 
-// U,UR,R,DR,D,DL,L,UL
+// L,LD,D,RD,R,RU,U,LU
 int DIRECTION_X[8] = {0,1,1,1,0,-1,-1,-1};
 int DIRECTION_Y[8] = {-1,-1,0,1,1,1,0,-1};
 
@@ -223,11 +223,71 @@ bool put(int x, int y, int color, bool onlyCheck)
 }
 
 /*
+ * Calculate the openness
+ */
+int Openness(int x, int y, int color)
+{
+    static vector<Position> posToReverse;
+    int openness = 0;
+    for(int i = 0; i < 8; i++) {
+        int xt = x;
+        int yt = y;
+        int opinionColor = (color == BLACK) ? WHITE : BLACK; 
+        posToReverse.clear();
+
+        while(1) {
+            xt += DIRECTION_X[i];
+            yt += DIRECTION_Y[i];
+            if(xt < 0 || xt > 7 || yt < 0 || yt > 7) {
+                posToReverse.clear();
+                break;
+            }
+            int chess = isWhat(xt, yt);
+            if(chess == opinionColor) {
+                posToReverse.push_back(Position(xt, yt));
+            }
+            else if(chess == 0) {
+                posToReverse.clear();
+                break;
+            }
+            else {
+                break;
+            }
+        }
+        
+        if (posToReverse.size()) {
+            //printf("%d ",posToReverse.size());
+            for (Position pos : posToReverse) {
+                for(int i = 0; i < 8; i++) {
+                    int openx = pos.x + DIRECTION_X[i];
+                    int openy = pos.y + DIRECTION_Y[i];
+                    if(openx < 0 || openx > 7 || openy < 0 || openy > 7) continue;
+                    if(ChessBoard[openx][openy] == 0) ++openness;
+                }
+            }
+            
+		}
+    }
+    return openness;
+}
+
+/*
  * AI choice best way to go
  */
-Position Go()
+Position Go(int color)
 {
-
+    vector<int> openness;
+    for (Position pos : possiblePosition) {
+        openness.push_back(Openness(pos.x, pos.y, color));
+    }
+    int minindex = 0;
+    int min = 10000;
+    for(int i = 0; i < openness.size(); i++) {
+        printf("%d ",openness[i]);
+        if(min > openness[i]) minindex = i;
+    }
+    printf(" min:%d\n",minindex);
+    return possiblePosition[minindex];
 }
 
 /*
@@ -279,13 +339,14 @@ int main()
         // check where can go
         SavecanGo(my_color);
         // print ai move
-        printf("Please input your move: ");
-        int tx,ty;
-        scanf("%d %d", &tx, &ty);
-        //Position ai_go = Go();
+        // printf("Please input your move: ");
+        // int tx,ty;
+        // scanf("%d %d", &tx, &ty);
+        Position ai_go = Go(my_color);
+        printf("Go %d %d\n",ai_go.x, ai_go.y);
         // update chessboard
-        UpdateBoard(tx, ty, my_color);
-        //UpdateBoard(ai_go.x, ai_go.y, my_color);
+        // UpdateBoard(tx, ty, my_color);
+        UpdateBoard(ai_go.x, ai_go.y, my_color);
         // print chessboard
         PrintBoard(opinion_color);
     }               
@@ -347,12 +408,13 @@ int main()
         }
         if(!cannotGo_me) {
             // print ai move
-            printf("Please input your move: ");
-            int tx,ty;
-            scanf("%d %d", &tx, &ty);
-            //Position ai_go = Go();
+            // printf("Please input your move: ");
+            // int tx,ty;
+            // scanf("%d %d", &tx, &ty);
+            Position ai_go = Go(my_color);
             // update chessboard
-            UpdateBoard(tx, ty, my_color);
+            UpdateBoard(ai_go.x, ai_go.y, my_color);
+            printf("Go %d %d\n",ai_go.x, ai_go.y);
             // print chessboard
             PrintBoard(opinion_color);
             // check win

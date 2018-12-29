@@ -8,6 +8,8 @@ using namespace std;
 
 #define BLACK 1
 #define WHITE 2
+#define REAL 1
+#define PREDICT 2
 
 struct Position {
     Position(int, int);
@@ -22,18 +24,21 @@ Position::Position(int cx, int cy) {
 
 void InitBoard();
 void PrintBoard(int);
-void UpdateBoard(int, int, int);
+void UpdateBoard(int, int, int, int);
 bool BoardisFull();
 int BoardisOneColor();
-int isWhat(int, int);
+int isWhat(int, int, int);
 void SavecanGo(int);
 bool canGo(int);
-bool put(int, int, int, bool);
+bool put(int, int, int, bool, int);
+int Openness(int, int, int, int);
 Position Go();
 int CheckWin();
 
 int ChessBoard[8][8];
+int PredictChessBoard[8][8];
 vector<Position> possiblePosition;
+int MyColor;
 
 // L,LD,D,RD,R,RU,U,LU
 int DIRECTION_X[8] = {0,1,1,1,0,-1,-1,-1};
@@ -102,10 +107,11 @@ void PrintBoard(int color)
 /*
  * Update the ChessBoard
  */
-void UpdateBoard(int px, int py, int color)
+void UpdateBoard(int px, int py, int color, int board)
 {
-    ChessBoard[px][py] = color;
-    put(px, py, color, false);
+    if(board == REAL) ChessBoard[px][py] = color;
+    else PredictChessBoard[px][py] = color;
+    put(px, py, color, false, board);
 }
 
 /*
@@ -147,9 +153,17 @@ int BoardisOneColor()
 /*
  * Return chessboard color
  */
-int isWhat(int x, int y)
+int isWhat(int x, int y, int board)
 {
-    return ChessBoard[x][y];
+    return (board == REAL) ? ChessBoard[x][y] : PredictChessBoard[x][y];
+}
+
+/*
+ * Put color on chessboard
+ */
+void putColor(int x, int y, int color, int board)
+{
+    (board == REAL) ? (ChessBoard[x][y] = color) : (PredictChessBoard[x][y] = color);
 }
 
 /*
@@ -161,7 +175,7 @@ void SavecanGo(int color)
     int x,y;
     for(x = 0; x < 8; ++x) {
 		for(y = 0; y < 8; ++y) {
-			if(put(x, y, color, true)) {
+			if(put(x, y, color, true, REAL)) {
 			    possiblePosition.push_back(Position(x, y));
             }
 		}
@@ -181,9 +195,9 @@ bool canGo(int color)
 /*
  * Try to go on chessboard and return true for can go
  */
-bool put(int x, int y, int color, bool onlyCheck)
+bool put(int x, int y, int color, bool onlyCheck, int board)
 {
-    if(isWhat(x, y) != 0 && onlyCheck) return false;
+    if(isWhat(x, y, board) != 0 && onlyCheck) return false;
     
     static vector<Position> posToReverse;
     for(int i = 0; i < 8; i++) {
@@ -199,7 +213,7 @@ bool put(int x, int y, int color, bool onlyCheck)
                 posToReverse.clear();
                 break;
             }
-            int chess = isWhat(xt, yt);
+            int chess = isWhat(xt, yt, board);
             if(chess == opinionColor) {
                 posToReverse.push_back(Position(xt, yt));
             }
@@ -214,8 +228,7 @@ bool put(int x, int y, int color, bool onlyCheck)
         if (posToReverse.size()) {
 			if(onlyCheck) return true;
             for (Position pos : posToReverse) {
-                if(color == 1) ChessBoard[pos.x][pos.y] = 1;
-                else ChessBoard[pos.x][pos.y] = 2;
+                putColor(pos.x, pos.y, color, board);
             }
 		}
     }
@@ -225,7 +238,7 @@ bool put(int x, int y, int color, bool onlyCheck)
 /*
  * Calculate the openness
  */
-int Openness(int x, int y, int color)
+int Openness(int x, int y, int color, int level)
 {
     static vector<Position> posToReverse;
     int openness = 0;
@@ -242,7 +255,7 @@ int Openness(int x, int y, int color)
                 posToReverse.clear();
                 break;
             }
-            int chess = isWhat(xt, yt);
+            int chess = isWhat(xt, yt, REAL);
             if(chess == opinionColor) {
                 posToReverse.push_back(Position(xt, yt));
             }
@@ -268,7 +281,24 @@ int Openness(int x, int y, int color)
             
 		}
     }
-    return openness;
+    return (color == MyColor) ? openness : -openness;
+}
+
+/*
+ * Predict where can go
+ */
+vector<Position> PredictcanGo(int color)
+{
+    vector<Position> predictPosition;
+    int x,y;
+    for(x = 0; x < 8; ++x) {
+		for(y = 0; y < 8; ++y) {
+			if(put(x, y, color, true, PREDICT)) {
+			    predictPosition.push_back(Position(x, y));
+            }
+		}
+    }
+    return predictPosition;
 }
 
 /*
@@ -278,15 +308,18 @@ Position Go(int color)
 {
     vector<int> openness;
     for (Position pos : possiblePosition) {
-        openness.push_back(Openness(pos.x, pos.y, color));
+        openness.push_back(Openness(pos.x, pos.y, color, 2));
     }
     int minindex = 0;
     int min = 10000;
     for(int i = 0; i < openness.size(); i++) {
         printf("%d ",openness[i]);
-        if(min > openness[i]) minindex = i;
+        if(min > openness[i]) {
+            min = openness[i];
+            minindex = i;
+        }
     }
-    printf(" min:%d\n",minindex);
+    printf("\n");
     return possiblePosition[minindex];
 }
 
@@ -317,6 +350,7 @@ int CheckWin(int go_color)
     }
     return 0;
 }
+
 int main()
 {
     int my_color = 0;
@@ -328,6 +362,7 @@ int main()
 		    getchar();
     }
     printf("Color is %d.\n",my_color);
+    MyColor = my_color;
     opinion_color = (my_color == BLACK) ? WHITE : BLACK;
     InitBoard();
     PrintBoard(BLACK);
@@ -346,7 +381,7 @@ int main()
         printf("Go %d %d\n",ai_go.x, ai_go.y);
         // update chessboard
         // UpdateBoard(tx, ty, my_color);
-        UpdateBoard(ai_go.x, ai_go.y, my_color);
+        UpdateBoard(ai_go.x, ai_go.y, my_color, REAL);
         // print chessboard
         PrintBoard(opinion_color);
     }               
@@ -385,7 +420,7 @@ int main()
         }
         if(!cannotGo_opinion) {
             // update chessboard
-            UpdateBoard(ox, oy, opinion_color);
+            UpdateBoard(ox, oy, opinion_color, REAL);
             // print chessboard
             PrintBoard(my_color); 
             // check win
@@ -413,7 +448,7 @@ int main()
             // scanf("%d %d", &tx, &ty);
             Position ai_go = Go(my_color);
             // update chessboard
-            UpdateBoard(ai_go.x, ai_go.y, my_color);
+            UpdateBoard(ai_go.x, ai_go.y, my_color, REAL);
             printf("Go %d %d\n",ai_go.x, ai_go.y);
             // print chessboard
             PrintBoard(opinion_color);

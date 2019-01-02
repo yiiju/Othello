@@ -12,6 +12,7 @@ using namespace std;
 #define PREDICT 2
 
 struct Position {
+    Position():x(-1),y(-1) {}
     Position(int, int);
     int x;
     int y;
@@ -20,6 +21,18 @@ struct Position {
 Position::Position(int cx, int cy) {
     x = cx;
     y = cy;
+}
+
+struct MinOpen {
+    MinOpen():min(100000),pos(-1,-1) {}
+    MinOpen(int, Position);
+    int min;
+    Position pos;
+};
+
+MinOpen::MinOpen(int cmin, Position cpos) {
+    min = cmin;
+    pos = cpos;
 }
 
 void InitBoard();
@@ -31,8 +44,10 @@ int isWhat(int, int, int);
 void SavecanGo(int);
 bool canGo(int);
 bool put(int, int, int, bool, int);
-int Openness(int, int, int, int);
-Position Go();
+int Openness(int, int, int, int, int);
+vector<Position> PredictcanGo(int);
+struct MinOpen Go(int, int);
+struct Position AI_GO(int, int);
 int CheckWin();
 
 int ChessBoard[8][8];
@@ -53,10 +68,13 @@ void InitBoard()
     for(i = 0; i < 8; ++i) {
         for(j = 0; j < 8; ++j) {
             ChessBoard[i][j] = 0;
+            PredictChessBoard[i][j] = 0;
         }
     }
     ChessBoard[4][3] = BLACK; ChessBoard[3][4] = BLACK;
     ChessBoard[3][3] = WHITE; ChessBoard[4][4] = WHITE;
+    PredictChessBoard[4][3] = BLACK; PredictChessBoard[3][4] = BLACK;
+    PredictChessBoard[3][3] = WHITE; PredictChessBoard[4][4] = WHITE;
 }
 
 /*
@@ -97,7 +115,19 @@ void PrintBoard(int color)
                     break;
                 }
             }
-            if(in == 0) printf("%d ",ChessBoard[i][j]);
+            if(in == 0) {
+                if(ChessBoard[i][j] == BLACK) {
+                    SetConsoleTextAttribute(hConsole, FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY);
+                    printf("%d ",ChessBoard[i][j]);
+                    SetConsoleTextAttribute(hConsole, saved_attributes);
+                }
+                else if(ChessBoard[i][j] == WHITE){
+                    SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_INTENSITY);
+                    printf("%d ",ChessBoard[i][j]);
+                    SetConsoleTextAttribute(hConsole, saved_attributes);
+                }
+                else printf("%d ",ChessBoard[i][j]);
+            }
             in = 0;
         }
         printf("\n");
@@ -238,7 +268,7 @@ bool put(int x, int y, int color, bool onlyCheck, int board)
 /*
  * Calculate the openness
  */
-int Openness(int x, int y, int color, int level)
+int Openness(int x, int y, int color, int level, int board)
 {
     static vector<Position> posToReverse;
     int openness = 0;
@@ -255,7 +285,7 @@ int Openness(int x, int y, int color, int level)
                 posToReverse.clear();
                 break;
             }
-            int chess = isWhat(xt, yt, REAL);
+            int chess = isWhat(xt, yt, board);
             if(chess == opinionColor) {
                 posToReverse.push_back(Position(xt, yt));
             }
@@ -269,19 +299,17 @@ int Openness(int x, int y, int color, int level)
         }
         
         if (posToReverse.size()) {
-            //printf("%d ",posToReverse.size());
             for (Position pos : posToReverse) {
-                for(int i = 0; i < 8; i++) {
-                    int openx = pos.x + DIRECTION_X[i];
-                    int openy = pos.y + DIRECTION_Y[i];
+                for(int j = 0; j < 8; j++) {
+                    int openx = pos.x + DIRECTION_X[j];
+                    int openy = pos.y + DIRECTION_Y[j];
                     if(openx < 0 || openx > 7 || openy < 0 || openy > 7) continue;
                     if(ChessBoard[openx][openy] == 0) ++openness;
                 }
             }
-            
 		}
     }
-    return (color == MyColor) ? openness : -openness;
+    return openness;
 }
 
 /*
@@ -302,25 +330,58 @@ vector<Position> PredictcanGo(int color)
 }
 
 /*
- * AI choice best way to go
+ * AI choice the best way to go
  */
-Position Go(int color)
+Position AI_GO(int color, int level)
 {
-    vector<int> openness;
-    for (Position pos : possiblePosition) {
-        openness.push_back(Openness(pos.x, pos.y, color, 2));
-    }
-    int minindex = 0;
-    int min = 10000;
-    for(int i = 0; i < openness.size(); i++) {
-        printf("%d ",openness[i]);
-        if(min > openness[i]) {
-            min = openness[i];
-            minindex = i;
+    struct MinOpen minopen = Go(color, level);
+    printf("pos:%d %d %d\n",minopen.min,minopen.pos.x,minopen.pos.y);
+    return minopen.pos;
+}
+
+/*
+ * AI test the best way
+ */
+struct MinOpen Go(int color, int level)
+{
+    int opinion_color = (color == BLACK) ? WHITE : BLACK;
+    vector<Position> position = PredictcanGo(color);
+    int OpennessVector[64]; 
+    for(int i = 0; i < 64; i++) OpennessVector[i] = 0;
+    for (int i = 0; i < position.size(); i++) {
+        OpennessVector[i] += Openness(position[i].x, position[i].y, color, level, PREDICT);
+        if(level != 1) {
+            --level;
+            // update predict chessboard
+            UpdateBoard(position[i].x, position[i].y, color, PREDICT);
+            struct MinOpen minGo = Go(opinion_color, level);
+            int mingo = minGo.min;
+            if(opinion_color != MyColor) mingo = -mingo;
+            OpennessVector[i] += mingo;
+            for(int j = 0; j < 8; j++) {
+                for(int k = 0; k < 8; k++) {
+                    PredictChessBoard[j][k] = ChessBoard[j][k];
+                }
+            } 
+            ++level;
         }
     }
-    printf("\n");
-    return possiblePosition[minindex];
+    int minindex = 0;
+    int min = 100000;
+    for(int i = 0; i < position.size(); i++) {
+        //printf("%d ",OpennessVector[i]);
+        if(min > OpennessVector[i]) {
+            minindex = i;
+            min = OpennessVector[i];
+        }
+    }
+    //printf("\n");
+    struct MinOpen minopen;
+    if(min != 100000) {
+        minopen.min = min;
+        minopen.pos = position[minindex];
+    }
+    return minopen;
 }
 
 /*
@@ -350,7 +411,6 @@ int CheckWin(int go_color)
     }
     return 0;
 }
-
 int main()
 {
     int my_color = 0;
@@ -374,14 +434,11 @@ int main()
         // check where can go
         SavecanGo(my_color);
         // print ai move
-        // printf("Please input your move: ");
-        // int tx,ty;
-        // scanf("%d %d", &tx, &ty);
-        Position ai_go = Go(my_color);
+        Position ai_go = AI_GO(my_color, 2);
         printf("Go %d %d\n",ai_go.x, ai_go.y);
         // update chessboard
-        // UpdateBoard(tx, ty, my_color);
         UpdateBoard(ai_go.x, ai_go.y, my_color, REAL);
+        UpdateBoard(ai_go.x, ai_go.y, my_color, PREDICT);
         // print chessboard
         PrintBoard(opinion_color);
     }               
@@ -421,6 +478,7 @@ int main()
         if(!cannotGo_opinion) {
             // update chessboard
             UpdateBoard(ox, oy, opinion_color, REAL);
+            UpdateBoard(ox, oy, opinion_color, PREDICT);
             // print chessboard
             PrintBoard(my_color); 
             // check win
@@ -443,12 +501,10 @@ int main()
         }
         if(!cannotGo_me) {
             // print ai move
-            // printf("Please input your move: ");
-            // int tx,ty;
-            // scanf("%d %d", &tx, &ty);
-            Position ai_go = Go(my_color);
+            Position ai_go = AI_GO(my_color, 2);
             // update chessboard
             UpdateBoard(ai_go.x, ai_go.y, my_color, REAL);
+            UpdateBoard(ai_go.x, ai_go.y, my_color, PREDICT);
             printf("Go %d %d\n",ai_go.x, ai_go.y);
             // print chessboard
             PrintBoard(opinion_color);

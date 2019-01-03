@@ -46,6 +46,7 @@ bool canGo(int);
 bool put(int, int, int, bool, int);
 int Openness(int, int, int, int, int);
 vector<Position> PredictcanGo(int);
+int WeightedStrategy(Position);
 struct MinOpen Go(int, int);
 struct Position AI_GO(int, int);
 int CheckWin();
@@ -336,7 +337,26 @@ Position AI_GO(int color, int level)
 {
     struct MinOpen minopen = Go(color, level);
     printf("pos:%d %d %d\n",minopen.min,minopen.pos.x,minopen.pos.y);
+    while(minopen.pos.x == -1) minopen = Go(color, --level);
     return minopen.pos;
+}
+
+/*
+ * Use the weighted square strategy and return 0 if it is bad move 
+ */
+int WeightedStrategy(Position pos)
+{
+    if((pos.x == 1 || pos.x == 6) && (pos.y == 1 || pos.y == 6)) {
+        return 10;
+    }
+    else if(((pos.x == 0 || pos.x == 7) && (pos.y == 1 || pos.y == 6)) ||
+        ((pos.x == 1 || pos.x == 6) && (pos.y == 0 || pos.y == 7))) {
+        return 5;
+    }
+    else if((pos.x == 0 || pos.x == 7) && (pos.y == 0 || pos.y == 7)) {
+        return -5;
+    }
+    else return 0;
 }
 
 /*
@@ -348,7 +368,9 @@ struct MinOpen Go(int color, int level)
     vector<Position> position = PredictcanGo(color);
     int OpennessVector[64]; 
     for(int i = 0; i < 64; i++) OpennessVector[i] = 0;
-    for (int i = 0; i < position.size(); i++) {
+    int cut = (position.size() > 5) ? 5 : position.size();
+    for (int i = 0; i < cut; i++) {
+        OpennessVector[i] += WeightedStrategy(position[i]);
         OpennessVector[i] += Openness(position[i].x, position[i].y, color, level, PREDICT);
         if(level != 1) {
             --level;
@@ -368,7 +390,7 @@ struct MinOpen Go(int color, int level)
     }
     int minindex = 0;
     int min = 100000;
-    for(int i = 0; i < position.size(); i++) {
+    for(int i = 0; i < cut; i++) {
         //printf("%d ",OpennessVector[i]);
         if(min > OpennessVector[i]) {
             minindex = i;
@@ -434,7 +456,7 @@ int main()
         // check where can go
         SavecanGo(my_color);
         // print ai move
-        Position ai_go = AI_GO(my_color, 2);
+        Position ai_go = AI_GO(my_color, 10);
         printf("Go %d %d\n",ai_go.x, ai_go.y);
         // update chessboard
         UpdateBoard(ai_go.x, ai_go.y, my_color, REAL);
@@ -501,7 +523,7 @@ int main()
         }
         if(!cannotGo_me) {
             // print ai move
-            Position ai_go = AI_GO(my_color, 2);
+            Position ai_go = AI_GO(my_color, 9);
             // update chessboard
             UpdateBoard(ai_go.x, ai_go.y, my_color, REAL);
             UpdateBoard(ai_go.x, ai_go.y, my_color, PREDICT);

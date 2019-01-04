@@ -10,6 +10,7 @@ using namespace std;
 #define WHITE 2
 #define REAL 1
 #define PREDICT 2
+#define LEVEL 9
 
 struct Position {
     Position():x(-1),y(-1) {}
@@ -369,6 +370,7 @@ struct MinOpen Go(int color, int level)
     int OpennessVector[64]; 
     for(int i = 0; i < 64; i++) OpennessVector[i] = 0;
     int cut = (position.size() > 5) ? 5 : position.size();
+    if(level == LEVEL) cut = position.size();
     for (int i = 0; i < cut; i++) {
         OpennessVector[i] += WeightedStrategy(position[i]);
         OpennessVector[i] += Openness(position[i].x, position[i].y, color, level, PREDICT);
@@ -456,7 +458,7 @@ int main()
         // check where can go
         SavecanGo(my_color);
         // print ai move
-        Position ai_go = AI_GO(my_color, 10);
+        Position ai_go = AI_GO(my_color, LEVEL);
         printf("Go %d %d\n",ai_go.x, ai_go.y);
         // update chessboard
         UpdateBoard(ai_go.x, ai_go.y, my_color, REAL);
@@ -523,7 +525,7 @@ int main()
         }
         if(!cannotGo_me) {
             // print ai move
-            Position ai_go = AI_GO(my_color, 9);
+            Position ai_go = AI_GO(my_color, LEVEL);
             // update chessboard
             UpdateBoard(ai_go.x, ai_go.y, my_color, REAL);
             UpdateBoard(ai_go.x, ai_go.y, my_color, PREDICT);

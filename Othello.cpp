@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <iostream>
 #include <vector>
 #include <windows.h>
@@ -42,14 +43,16 @@ void UpdateBoard(int, int, int, int);
 bool BoardisFull();
 int BoardisOneColor();
 int isWhat(int, int, int);
+void putColor(int, int, int, int);
+void PrintCanGo();
 void SavecanGo(int);
 bool canGo(int);
 bool put(int, int, int, bool, int);
 int Openness(int, int, int, int, int);
 vector<Position> PredictcanGo(int);
+struct Position AI_GO(int, int);
 int WeightedStrategy(Position);
 struct MinOpen Go(int, int);
-struct Position AI_GO(int, int);
 int CheckWin();
 
 int ChessBoard[8][8];
@@ -196,6 +199,20 @@ int isWhat(int x, int y, int board)
 void putColor(int x, int y, int color, int board)
 {
     (board == REAL) ? (ChessBoard[x][y] = color) : (PredictChessBoard[x][y] = color);
+}
+
+/*
+ * Print where can go
+ */
+void PrintCanGo() 
+{
+    char site_x[8] = {'1', '2', '3', '4', '5', '6', '7', '8'};
+    char site_y[8] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'};
+    // print can go where
+    for (Position pos : possiblePosition) {
+        printf("%d %d(%c%c), ", pos.x, pos.y, site_y[pos.y], site_x[pos.x]);
+    }
+    printf("choose one to move.\n");
 }
 
 /*
@@ -355,8 +372,14 @@ int WeightedStrategy(Position pos)
         return 5;
     }
     else if((pos.x == 0 || pos.x == 7) && (pos.y == 0 || pos.y == 7)) {
+        return -10;
+    }
+    /*
+    else if(((pos.x == 0 || pos.x == 7) && (pos.y == 2 || pos.y == 3 || pos.y == 4 || pos.y == 5)) ||
+        ((pos.y == 0 || pos.y == 7) && (pos.x == 2 || pos.x == 3 || pos.x == 4 || pos.x == 5))) {
         return -5;
     }
+    */
     else return 0;
 }
 
@@ -435,6 +458,7 @@ int CheckWin(int go_color)
     }
     return 0;
 }
+
 int main()
 {
     int my_color = 0;
@@ -481,13 +505,20 @@ int main()
                 cannotGo_opinion = true;
                 break;
             }
-            // print can go where
-            for (Position pos : possiblePosition) {
-                printf("%d %d, ",pos.x,pos.y);
-            }
-            printf("choose one to move.\n");
+
+            PrintCanGo();
             printf("Please input your move: ");
-            scanf("%d %d", &ox, &oy);
+            char buf[4];
+            fflush(stdin); 
+            while(fgets(buf, 4, stdin) != NULL) {
+                if(sscanf(buf, "%d %d", &ox, &oy) == 2) {
+                    break;
+                }
+                else {
+					printf("Wrong input, please input again\n");
+                    printf("Please input your move: ");
+				}
+            }
             // check if this move is legal
             bool notGo = true;
             for(int i = 0; i < possiblePosition.size(); i++) {
